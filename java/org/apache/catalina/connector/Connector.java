@@ -16,13 +16,6 @@
  */
 package org.apache.catalina.connector;
 
-import java.net.InetAddress;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-
-import javax.management.ObjectName;
-
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.LifecycleState;
 import org.apache.catalina.Service;
@@ -36,6 +29,12 @@ import org.apache.juli.logging.LogFactory;
 import org.apache.tomcat.util.IntrospectionUtils;
 import org.apache.tomcat.util.http.mapper.Mapper;
 import org.apache.tomcat.util.res.StringManager;
+
+import javax.management.ObjectName;
+import java.net.InetAddress;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 
 
 /**
@@ -62,10 +61,15 @@ public class Connector extends LifecycleMBeanBase  {
         this(null);
     }
 
+    /**
+     * @param protocol 可以是协议名称，如'HTTP/1.1'，也可以是具体的协议处理器，如org.apache.coyote.http11.Http11AprProtocol
+     */
     public Connector(String protocol) {
+        // 根据连接器的协议，选择协议处理器，
         setProtocol(protocol);
         // Instantiate protocol handler
         try {
+            // 实例化协议处理器
             Class<?> clazz = Class.forName(protocolHandlerClassName);
             this.protocolHandler = (ProtocolHandler) clazz.newInstance();
         } catch (Exception e) {
@@ -274,6 +278,8 @@ public class Connector extends LifecycleMBeanBase  {
 
     /**
      * Set a configured property.
+     * 把connector中的部分配置通过protocolHandler{@link org.apache.coyote.AbstractProtocol}
+     * 间接赋予AbstractEndpoint.
      */
     public boolean setProperty(String name, String value) {
         String repl = name;
@@ -1004,6 +1010,7 @@ public class Connector extends LifecycleMBeanBase  {
         setState(LifecycleState.STARTING);
 
         try {
+            // 启动协议处理器（默认为Http11Protocol），调用AbstractProtocol.start()
             protocolHandler.start();
         } catch (Exception e) {
             String errPrefix = "";

@@ -118,7 +118,7 @@ public class ClassLoaderLogManager extends LogManager {
      */
     protected volatile boolean useShutdownHook = true;
 
-    
+
     // ------------------------------------------------------------- Properties
 
 
@@ -137,7 +137,7 @@ public class ClassLoaderLogManager extends LogManager {
 
     /**
      * Add the specified logger to the classloader local configuration.
-     * 
+     *
      * @param logger The logger to be added
      */
     @Override
@@ -145,7 +145,7 @@ public class ClassLoaderLogManager extends LogManager {
 
         final String loggerName = logger.getName();
 
-        ClassLoader classLoader = 
+        ClassLoader classLoader =
             Thread.currentThread().getContextClassLoader();
         ClassLoaderLogInfo info = getClassLoaderInfo(classLoader);
         if (info.loggers.containsKey(loggerName)) {
@@ -169,7 +169,7 @@ public class ClassLoaderLogManager extends LogManager {
             }
         }
 
-        // Always instantiate parent loggers so that 
+        // Always instantiate parent loggers so that
         // we can control log categories even during runtime
         int dotIndex = loggerName.lastIndexOf('.');
         if (dotIndex >= 0) {
@@ -192,6 +192,10 @@ public class ClassLoaderLogManager extends LogManager {
 
         // Add associated handlers, if any are defined using the .handlers property.
         // In this case, handlers of the parent logger(s) will not be used
+        /**
+         * 在方法{@link readConfiguration(ClassLoader classLoader)}末尾，增加了localRootLogger，
+         * 由于该logger的name为""，所以此处的handlers为'$CATALINA_HOME/conf/logging.properties'中的'.handlers'，即root logger
+         */
         String handlers = getProperty(loggerName + ".handlers");
         if (handlers != null) {
             logger.setUseParentHandlers(false);
@@ -436,6 +440,9 @@ public class ClassLoaderLogManager extends LogManager {
         // Special case for URL classloaders which are used in containers: 
         // only look in the local repositories to avoid redefining loggers 20 times
         try {
+            /**
+             * 1. 尝试加载web应用下的日志配置，WEB-INF/classes/logging.properties
+             */
             if (classLoader instanceof URLClassLoader) {
                 URL logConfig = ((URLClassLoader)classLoader).findResource("logging.properties");
 
@@ -473,6 +480,11 @@ public class ClassLoaderLogManager extends LogManager {
             }
         }
         if ((is == null) && (classLoader == ClassLoader.getSystemClassLoader())) {
+            /**
+             * 2. 尝试加载tomcat目录下的日志配置
+             * 在启动脚本中指定日志配置文件位置(catalina.sh或catalina.bat)
+             * LOGGING_CONFIG="-Djava.util.logging.config.file=$CATALINA_BASE/conf/logging.properties"
+             */
             String configFileStr = System.getProperty("java.util.logging.config.file");
             if (configFileStr != null) {
                 try {
@@ -484,6 +496,9 @@ public class ClassLoaderLogManager extends LogManager {
             }
             // Try the default JVM configuration
             if (is == null) {
+                /**
+                 * 3. 尝试加载JRE目录下默认的日志配置文件（${java.home}/lib/logging.properties）
+                 */
                 File defaultFile = new File(new File(System.getProperty("java.home"),
                                                      isJava9 ? "conf" : "lib"),
                     "logging.properties");
@@ -495,7 +510,7 @@ public class ClassLoaderLogManager extends LogManager {
                 }
             }
         }
-        
+        // NOTE root logger，对应'$CATALINA_HOME/conf/logging.properties中的.handlers'
         Logger localRootLogger = new RootLogger();
         if (is == null) {
             // Retrieve the root logger of the parent classloader instead

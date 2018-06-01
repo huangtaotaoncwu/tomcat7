@@ -17,24 +17,7 @@
 package org.apache.catalina.startup;
 
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.lang.reflect.Constructor;
-import java.net.ConnectException;
-import java.net.Socket;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.logging.LogManager;
-
-import org.apache.catalina.Container;
-import org.apache.catalina.Globals;
-import org.apache.catalina.LifecycleException;
-import org.apache.catalina.LifecycleState;
-import org.apache.catalina.Server;
+import org.apache.catalina.*;
 import org.apache.catalina.security.SecurityConfig;
 import org.apache.juli.ClassLoaderLogManager;
 import org.apache.tomcat.util.ExceptionUtils;
@@ -46,6 +29,15 @@ import org.apache.tomcat.util.res.StringManager;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXParseException;
+
+import java.io.*;
+import java.lang.reflect.Constructor;
+import java.net.ConnectException;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.logging.LogManager;
 
 
 /**
@@ -542,12 +534,14 @@ public class Catalina {
 
         long t1 = System.nanoTime();
 
+        // 初始化tomcat目录
         initDirs();
 
         // Before digester - it may be needed
 
         initNaming();
 
+        // 创建conf/server.xml文件解析器
         // Create and execute our Digester
         Digester digester = createStartDigester();
 
@@ -612,8 +606,10 @@ public class Catalina {
             }
 
             try {
+                // 解析conf/server.xml文件
                 inputSource.setByteStream(inputStream);
                 digester.push(this);
+                // 创建server、service等实例
                 digester.parse(inputSource);
             } catch (SAXParseException spe) {
                 log.warn("Catalina.start using " + getConfigFile() + ": " +
@@ -640,6 +636,7 @@ public class Catalina {
 
         // Start the new server
         try {
+            // 初始化server，调用StandardServer.initInternal()
             getServer().init();
         } catch (LifecycleException e) {
             if (Boolean.getBoolean("org.apache.catalina.startup.EXIT_ON_INIT_FAILURE")) {
@@ -691,6 +688,7 @@ public class Catalina {
 
         // Start the new server
         try {
+            // 启动server，调用StandardServer.startInternal()
             getServer().start();
         } catch (LifecycleException e) {
             log.fatal(sm.getString("catalina.serverStartFail"), e);
@@ -717,6 +715,10 @@ public class Catalina {
             // If JULI is being used, disable JULI's shutdown hook since
             // shutdown hooks run in parallel and log messages may be lost
             // if JULI's hook completes before the CatalinaShutdownHook()
+            /**
+             * 在启动脚本中指定具体的LogManager(catalina.sh或catalina.bat)
+             * LOGGING_MANAGER="-Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager"
+             */
             LogManager logManager = LogManager.getLogManager();
             if (logManager instanceof ClassLoaderLogManager) {
                 ((ClassLoaderLogManager) logManager).setUseShutdownHook(

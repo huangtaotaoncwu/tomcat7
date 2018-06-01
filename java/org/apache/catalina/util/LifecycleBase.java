@@ -49,6 +49,7 @@ public abstract class LifecycleBase implements Lifecycle {
 
     /**
      * The current state of the source component.
+     * 默认状态NEW.
      */
     private volatile LifecycleState state = LifecycleState.NEW;
 
@@ -94,12 +95,15 @@ public abstract class LifecycleBase implements Lifecycle {
     @Override
     public final synchronized void init() throws LifecycleException {
         if (!state.equals(LifecycleState.NEW)) {
+            // 初始状态为NEW，非NEW则抛出异常
             invalidTransition(Lifecycle.BEFORE_INIT_EVENT);
         }
 
         try {
+            // state 初始化中
             setStateInternal(LifecycleState.INITIALIZING, null, false);
             initInternal();
+            // state 已初始化
             setStateInternal(LifecycleState.INITIALIZED, null, false);
         } catch (Throwable t) {
             ExceptionUtils.handleThrowable(t);
@@ -117,7 +121,7 @@ public abstract class LifecycleBase implements Lifecycle {
      */
     @Override
     public final synchronized void start() throws LifecycleException {
-
+        // 如果当前为准备启动、启动中、已启动，则直接返回
         if (LifecycleState.STARTING_PREP.equals(state) || LifecycleState.STARTING.equals(state) ||
                 LifecycleState.STARTED.equals(state)) {
 
@@ -141,8 +145,11 @@ public abstract class LifecycleBase implements Lifecycle {
         }
 
         try {
+            // 启动准备
             setStateInternal(LifecycleState.STARTING_PREP, null, false);
+            // 启动，由子类实现，将status更新为STARTING
             startInternal();
+            // 当前状态：STARTING or FAILED
             if (state.equals(LifecycleState.FAILED)) {
                 // This is a 'controlled' failure. The component put itself into the
                 // FAILED state so call stop() to complete the clean-up.
@@ -185,7 +192,7 @@ public abstract class LifecycleBase implements Lifecycle {
      */
     @Override
     public final synchronized void stop() throws LifecycleException {
-
+        // 如果当前为准备停止、停止中、已停止，则直接返回
         if (LifecycleState.STOPPING_PREP.equals(state) || LifecycleState.STOPPING.equals(state) ||
                 LifecycleState.STOPPED.equals(state)) {
 
@@ -199,11 +206,13 @@ public abstract class LifecycleBase implements Lifecycle {
             return;
         }
 
+        // 如果当前状态为NEW，说明当前服务为初始化状态，并未启动，直接停止
         if (state.equals(LifecycleState.NEW)) {
             state = LifecycleState.STOPPED;
             return;
         }
 
+        // 当前状态：STARTED or FAILED
         if (!state.equals(LifecycleState.STARTED) && !state.equals(LifecycleState.FAILED)) {
             invalidTransition(Lifecycle.BEFORE_STOP_EVENT);
         }
@@ -217,7 +226,7 @@ public abstract class LifecycleBase implements Lifecycle {
             } else {
                 setStateInternal(LifecycleState.STOPPING_PREP, null, false);
             }
-
+            // 停止，由子类实现，将status更新为STOPPING
             stopInternal();
 
             // Shouldn't be necessary but acts as a check that sub-classes are
@@ -381,7 +390,7 @@ public abstract class LifecycleBase implements Lifecycle {
                 invalidTransition(state.name());
             }
         }
-
+        // 更新生命周期状态
         this.state = state;
         String lifecycleEvent = state.getLifecycleEvent();
         if (lifecycleEvent != null) {

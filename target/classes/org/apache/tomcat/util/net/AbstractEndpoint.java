@@ -364,6 +364,12 @@ public abstract class AbstractEndpoint<S> {
     protected int getMaxThreadsInternal() {
         return maxThreads;
     }
+
+    /**
+     * connector最大线程数.
+     * 如果用户在conf/server.xml中配置了executor，则使用其最大线程数，否则使用默认值maxThreads=200.
+     * @return
+     */
     public int getMaxThreadsWithExecutor() {
         Executor executor = this.executor;
         if (internalExecutor) {

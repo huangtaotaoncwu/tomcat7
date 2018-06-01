@@ -212,6 +212,7 @@ public class JIoEndpoint extends AbstractEndpoint<Socket> {
                 state = AcceptorState.RUNNING;
 
                 try {
+                    // 尝试获取connLatch，否则等待
                     //if we have reached max connections, wait
                     countUpOrAwaitConnection();
 
@@ -221,6 +222,7 @@ public class JIoEndpoint extends AbstractEndpoint<Socket> {
                         // socket
                         socket = serverSocketFactory.acceptSocket(serverSocket);
                     } catch (IOException ioe) {
+                        // 释放connLatch
                         countDownConnection();
                         // Introduce delay if necessary
                         errorDelay = handleExceptionWithDelay(errorDelay);
@@ -234,6 +236,7 @@ public class JIoEndpoint extends AbstractEndpoint<Socket> {
                     if (running && !paused && setSocketOptions(socket)) {
                         // Hand this socket off to an appropriate processor
                         if (!processSocket(socket)) {
+                            // 处理socket失败，释放connLatch，关闭socket
                             countDownConnection();
                             // Close socket right away
                             closeSocket(socket);
@@ -313,8 +316,12 @@ public class JIoEndpoint extends AbstractEndpoint<Socket> {
 
                     if ((state != SocketState.CLOSED)) {
                         if (status == null) {
+                            // 首次处理
+                            // handler = Http11Protocol.Http11ConnectionHandler
+                            // AbstractProtocol.AbstractConnectionHandler.process()
                             state = handler.process(socket, SocketStatus.OPEN_READ);
                         } else {
+                            // 非首次
                             state = handler.process(socket,status);
                         }
                     }
@@ -379,6 +386,7 @@ public class JIoEndpoint extends AbstractEndpoint<Socket> {
         if (acceptorThreadCount == 0) {
             acceptorThreadCount = 1;
         }
+        // 对于BIO，如果没有配置最大连接数，则maxConnections=maxThread
         // Initialize maxConnections
         if (getMaxConnections() == 0) {
             // User hasn't set a value - use the default
@@ -425,15 +433,17 @@ public class JIoEndpoint extends AbstractEndpoint<Socket> {
             running = true;
             paused = false;
 
+            // 如果用户未在conf/server.xml中配置executor，则创建线程池
             // Create worker collection
             if (getExecutor() == null) {
                 createExecutor();
             }
-
+            // 根据maxConnections创建连接锁，connLatch
             initializeConnectionLatch();
-
+            // 启动连接acceptor线程
             startAcceptorThreads();
 
+            // TODO
             // Start async timeout thread
             Thread timeoutThread = new Thread(new AsyncTimeout(),
                     getName() + "-AsyncTimeout");
@@ -530,6 +540,7 @@ public class JIoEndpoint extends AbstractEndpoint<Socket> {
             if (!running) {
                 return false;
             }
+            // 开启新线程，处理socket
             getExecutor().execute(new SocketProcessor(wrapper));
         } catch (RejectedExecutionException x) {
             log.warn("Socket processing request was rejected for:"+socket,x);

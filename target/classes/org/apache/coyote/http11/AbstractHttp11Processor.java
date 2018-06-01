@@ -1000,11 +1000,12 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
             keptAlive = false;
         } else {
             // 判断socket是否支持长连接（socket长连接和tomcat长连接不同）
+            // socket的长连接主要指：如果在keepAlive时间内没有任何数据传输，则开启keepAlive功能的一端将发送keepAlive数据包进行探测
             keptAlive = socketWrapper.isKeptAlive();
         }
 
         if (disableKeepAlive()) {
-            // 仅用于BIO模式，当超过一定比例的线程繁忙时，停止keepAlive模式
+            // 当超过一定比例的线程繁忙时，停止keepAlive模式
             socketWrapper.setKeepAliveLeft(0);
         }
 
@@ -1014,6 +1015,15 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
 
             // Parsing the request header
             try {
+                /**
+                 * A Request Line specifies the Method Token (GET, PUT … ) followed by the Request URI
+                 * and then the HTTP Protocol that is being used. You can see this in the first line
+                 * of the request section named: Request Line:
+                 *
+                 * exg:
+                 * Request Line: GET /demo/test/tester HTTP/1.1
+                 */
+                // 读取request line（对于长连接只读取一次）
                 setRequestLineReadTimeout();
 
                 if (!getInputBuffer().parseRequestLine(keptAlive)) {
@@ -1103,6 +1113,7 @@ public abstract class AbstractHttp11Processor<S> extends AbstractProcessor<S> {
             if (!getErrorState().isError()) {
                 try {
                     rp.setStage(org.apache.coyote.Constants.STAGE_SERVICE);
+                    // TODO
                     adapter.service(request, response);
                     // Handle when the response was committed before a serious
                     // error occurred.  Throwing a ServletException should both

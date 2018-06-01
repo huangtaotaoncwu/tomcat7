@@ -172,6 +172,7 @@ public class ContextConfig implements LifecycleListener {
 
     /**
      * The default web application's context file location.
+     * 对应/CATALINA_HOME/conf/content.xml.
      * @deprecated Unnecessary
      */
     @Deprecated
@@ -180,6 +181,7 @@ public class ContextConfig implements LifecycleListener {
 
     /**
      * The default web application's deployment descriptor location.
+     * 对应/CATALINA_HOME/conf/web.xml.
      */
     protected String defaultWebXml = null;
 

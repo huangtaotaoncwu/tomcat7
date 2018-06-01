@@ -16,12 +16,6 @@
  */
 package org.apache.coyote.http11;
 
-import java.io.EOFException;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.Socket;
-import java.util.Set;
-
 import org.apache.coyote.ActionCode;
 import org.apache.coyote.http11.filters.BufferedInputFilter;
 import org.apache.juli.logging.Log;
@@ -31,6 +25,12 @@ import org.apache.tomcat.util.net.JIoEndpoint;
 import org.apache.tomcat.util.net.SSLSupport;
 import org.apache.tomcat.util.net.SocketStatus;
 import org.apache.tomcat.util.net.SocketWrapper;
+
+import java.io.EOFException;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.util.Set;
 
 
 /**
@@ -126,6 +126,7 @@ public class Http11Processor extends AbstractHttp11Processor<Socket> {
                 && (threadsBusy = endpoint.getCurrentThreadsBusy()) > 0) {
             threadRatio = (threadsBusy * 100) / maxThreads;
         }
+        // 如果当前繁忙线程占比超过阈值则停止keepAlive模式
         // Disable keep-alive if we are running low on threads      
         if (threadRatio > getDisableKeepAlivePercentage()) {     
             return true;
@@ -147,17 +148,21 @@ public class Http11Processor extends AbstractHttp11Processor<Socket> {
          * This is a little hacky but better than exposing the socket
          * and the timeout info to the InputBuffer
          */
+        // 如果输入缓冲区中没有数据，且本次请求不是当前连接的首次请求，且启用了超时机制时，
+        // 对于该请求的首次读取可能需要使用不同的超时时间，因为需要考虑等待处理线程所花费的时间
         if (inputBuffer.lastValid == 0 && socketWrapper.getLastAccess() > -1) {
             int firstReadTimeout;
             if (keepAliveTimeout == -1) {
+                // 如果keepAliveTimeout未设置，则设置首次读超时为0，即永不超时
                 firstReadTimeout = 0;
             } else {
                 long queueTime =
                     System.currentTimeMillis() - socketWrapper.getLastAccess();
-
+                // 请求等待处理线程的时间大于默认的socket读超时时间
                 if (queueTime >= keepAliveTimeout) {
                     // Queued for longer than timeout but there might be
                     // data so use shortest possible timeout
+                    // 缓冲区可能有数据，尝试读取
                     firstReadTimeout = 1;
                 } else {
                     // Cast is safe since queueTime must be less than
@@ -166,14 +171,17 @@ public class Http11Processor extends AbstractHttp11Processor<Socket> {
                 }
             }
             socketWrapper.getSocket().setSoTimeout(firstReadTimeout);
+            // 读取数据
             if (!inputBuffer.fill()) {
                 throw new EOFException(sm.getString("iib.eof.error"));
             }
             // Once the first byte has been read, the standard timeout should be
             // used so restore it here.
             if (endpoint.getSoTimeout()> 0) {
+                // 恢复默认的socket超时配置
                 setSocketTimeout(endpoint.getSoTimeout());
             } else {
+                // 永不超时
                 setSocketTimeout(0);
             }
         }
